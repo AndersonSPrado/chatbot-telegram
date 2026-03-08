@@ -1,0 +1,295 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -304,
+        -176
+      ],
+      "id": "749e64aa-ebc9-4a5d-8b1f-8b3f0876cb21",
+      "name": "Telegram Trigger",
+      "webhookId": "1a5eeb58-a7eb-4970-913c-4795203b412f",
+      "credentials": {
+        "telegramApi": {
+          "id": "8ilxbodAb5CZUz7K",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "=={{`🌤️ A temperatura em ${$json.cityName} é de ${$json.tempRounded}°C.`}}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        272,
+        32
+      ],
+      "id": "2d95c20c-fa13-493b-a0ca-87656df18877",
+      "name": "Send a text message",
+      "webhookId": "b610a764-d186-4dde-adb0-cf5d430fcb63",
+      "credentials": {
+        "telegramApi": {
+          "id": "8ilxbodAb5CZUz7K",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "73ac31a7-2c6a-43ef-8061-3fae650f55a4",
+              "name": "queue",
+              "value": "={{ $json.message.text }}",
+              "type": "string"
+            },
+            {
+              "id": "c601524e-34fa-4eed-85bd-b0cc0e041a5d",
+              "name": "chatId",
+              "value": "={{ $json.message.chat.id }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -80,
+        -176
+      ],
+      "id": "b6f67fbd-45fa-4b35-b20a-503f8ccac9ff",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = ($input.first().json.queue || '').trim();\n\nconst normalize = (s) => s\n  .normalize('NFD')\n  .replace(/[\\u0300-\\u036f]/g, '')\n  .replace(/\\s+/g, ' ')\n  .trim();\n\nlet cleaned = normalize(raw.toLowerCase());\n\n// aceita separadores como hífen ou barra\ncleaned = cleaned.replace(/\\s*[-\\/|]\\s*/g, ',');\ncleaned = cleaned.replace(/\\s*,\\s*/g, ',');\n\nlet city = cleaned;\nlet uf = '';\n\nif (!cleaned.includes(',')) {\n  const m = cleaned.match(/^(.*)\\s([a-z]{2})$/i);\n  if (m) {\n    cleaned = `${m[1].trim()},${m[2].trim()}`;\n  }\n}\n\nif (cleaned.includes(',')) {\n  const parts = cleaned.split(',').map(p => p.trim()).filter(Boolean);\n  city = parts[0] || '';\n  uf = (parts[1] || '').toUpperCase();\n}\n\nlet query = '';\nif (city && uf) {\n  query = `${city},${uf},BR`;\n} else if (city) {\n  query = `${city},BR`;\n}\n\nreturn [\n  {\n    queue: query,\n    cityNormalized: city,\n    uf,\n    chatId: $input.first().json.chatId,\n    originalText: raw\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        144,
+        -176
+      ],
+      "id": "6194222c-8881-402f-888e-27257d8a9fb4",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "url": "https://api.openweathermap.org/data/2.5/weather",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $json.queue }}"
+            },
+            {
+              "name": "units",
+              "value": "metric"
+            },
+            {
+              "name": "lang",
+              "value": "pt_br"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        336,
+        -176
+      ],
+      "id": "34db1a13-395a-418c-b1a8-a1548388575d",
+      "name": "HTTP Request",
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GvtrYY5X1czhmA62",
+          "name": "MyOpenWeather API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "958691e0-2e5c-47dc-982f-c01e5c076ba6",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -96,
+        96
+      ],
+      "id": "2f5a8713-0552-4254-acf4-7b5583b177cd",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $json;\n\nconst status = response.cod ?? 0;\nconst main = response.main ?? {};\n\nconst ok =\n  status >= 200 &&\n  status < 300 &&\n  main &&\n  typeof main.temp === 'number';\n\nif (!ok) {\n  return [{\n    response: response,\n    status: status,\n    ok: false,\n    statusCode: status,\n    chatId: $('Edit Fields').first().json.chatId\n  }];\n}\n\nconst temp = main.temp;\nconst tempRounded = Math.round(temp);\nconst cityName = response.name;\n\nreturn [{\n  ok: true,\n  statusCode: status,\n  temp: temp,\n  tempRounded,\n  cityName,\n  chatId: $('Edit Fields').first().json.chatId\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -288,
+        96
+      ],
+      "id": "fe408004-3d90-4eb6-808f-b6e646f6eb89",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "=❌ Cidade não encontrada. Use o formato Cidade,UF (ex.: São Paulo,SP).",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        272,
+        224
+      ],
+      "id": "3b437525-c95f-4799-8306-7f832eb2f2d0",
+      "name": "Send a text message1",
+      "webhookId": "b610a764-d186-4dde-adb0-cf5d430fcb63",
+      "credentials": {
+        "telegramApi": {
+          "id": "8ilxbodAb5CZUz7K",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a text message": {
+      "main": [
+        []
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a text message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "c7e586d1-31d0-4c83-8376-dd87b4be9afe",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4b57cdb730e15b69dfda75d1017570b0a53857b7748de1f37e3211d764f815ba"
+  },
+  "id": "UcXY7FRFqTNZaE9O",
+  "tags": []
+}
